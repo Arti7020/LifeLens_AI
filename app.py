@@ -1,4 +1,5 @@
 import time
+from datetime import datetime, date, timedelta
 
 import pandas as pd
 import plotly.express as px
@@ -7,7 +8,6 @@ import streamlit as st
 from database import (
     init_db,
     get_activity,
-    get_today_activity,
     delete_all_activity
 )
 
@@ -23,17 +23,38 @@ from ml_engine import (
 # ============================================================
 
 st.set_page_config(
-
     page_title="LifeLens AI",
-
     page_icon="🧠",
-
     layout="wide"
-
 )
 
-
 init_db()
+
+
+# ============================================================
+# CUSTOM CSS
+# ============================================================
+
+st.markdown(
+    """
+    <style>
+
+    .main-title {
+        font-size: 45px;
+        font-weight: 800;
+        margin-bottom: 0px;
+    }
+
+    .subtitle {
+        font-size: 19px;
+        color: gray;
+        margin-bottom: 25px;
+    }
+
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 
 # ============================================================
@@ -41,30 +62,25 @@ init_db()
 # ============================================================
 
 st.markdown(
-    """
-    <h1 style="
-        font-size: 45px;
-        margin-bottom: 0px;
-    ">
-        🧠 LifeLens AI
-    </h1>
-    """,
+    '<div class="main-title">🧠 LifeLens AI</div>',
     unsafe_allow_html=True
 )
-
 
 st.markdown(
     """
-    <p style="
-        font-size: 19px;
-        color: gray;
-    ">
-        Personalized Digital Behavior &
-        Productivity Analyzer
-    </p>
+    <div class="subtitle">
+    Personalized Digital Behavior & Productivity Analyzer
+    </div>
     """,
     unsafe_allow_html=True
 )
+
+
+# ============================================================
+# LOAD ALL DATA
+# ============================================================
+
+all_data = get_activity()
 
 
 # ============================================================
@@ -73,23 +89,25 @@ st.markdown(
 
 with st.sidebar:
 
-    st.header(
-        "⚙️ Control Panel"
-    )
-
+    st.header("⚙️ Control Panel")
 
     st.info(
         """
         LifeLens AI monitors application-level
-        activity.
+        computer activity.
 
         It does NOT record:
+
         • Passwords
         • Keyboard content
         • Screenshots
+        • Personal files
         """
     )
 
+    # --------------------------------------------------------
+    # REFRESH
+    # --------------------------------------------------------
 
     if st.button(
         "🔄 Refresh Dashboard",
@@ -98,51 +116,69 @@ with st.sidebar:
 
         st.rerun()
 
-
     st.divider()
 
+    # ========================================================
+    # DATE FILTER
+    # ========================================================
+
+    st.subheader("📅 Time Period")
+
+    period = st.selectbox(
+        "Select period",
+        [
+            "Today",
+            "Last 7 Days",
+            "This Month",
+            "Custom Date"
+        ]
+    )
+
+    # --------------------------------------------------------
+    # CUSTOM DATE
+    # --------------------------------------------------------
+
+    if period == "Custom Date":
+
+        custom_start = st.date_input(
+            "Start Date",
+            value=date.today()
+        )
+
+        custom_end = st.date_input(
+            "End Date",
+            value=date.today()
+        )
+
+    st.divider()
 
     # ========================================================
     # FOCUS MODE
     # ========================================================
 
-    st.subheader(
-        "🎯 Focus Mode"
-    )
-
+    st.subheader("🎯 Focus Mode")
 
     focus_minutes = st.number_input(
-
-        "Focus duration",
-
+        "Focus duration (minutes)",
         min_value=1,
-
         max_value=180,
-
         value=25
-
     )
-
 
     if st.button(
         "▶ Start Focus",
         use_container_width=True
     ):
 
-        st.session_state[
-            "focus_start"
-        ] = time.time()
+        st.session_state["focus_start"] = time.time()
 
-
-        st.session_state[
-            "focus_duration"
-        ] = focus_minutes * 60
-
+        st.session_state["focus_duration"] = (
+            focus_minutes * 60
+        )
 
         st.success(
             "Focus session started!"
         )
-
 
     if st.button(
         "⏹ Stop Focus",
@@ -159,23 +195,17 @@ with st.sidebar:
             None
         )
 
-
         st.info(
             "Focus session stopped."
         )
 
-
     st.divider()
-
 
     # ========================================================
     # DELETE DATA
     # ========================================================
 
-    st.subheader(
-        "🗑️ Data"
-    )
-
+    st.subheader("🗑️ Data")
 
     if st.button(
         "Delete All Activity",
@@ -185,7 +215,7 @@ with st.sidebar:
         delete_all_activity()
 
         st.success(
-            "All activity deleted."
+            "All activity has been deleted."
         )
 
         time.sleep(0.5)
@@ -200,23 +230,14 @@ with st.sidebar:
 if "focus_start" in st.session_state:
 
     remaining = (
-
-        st.session_state[
-            "focus_duration"
-        ]
-
+        st.session_state["focus_duration"]
         -
-
         (
             time.time()
             -
-            st.session_state[
-                "focus_start"
-            ]
+            st.session_state["focus_start"]
         )
-
     )
-
 
     if remaining > 0:
 
@@ -228,21 +249,16 @@ if "focus_start" in st.session_state:
             remaining % 60
         )
 
-
         st.warning(
-
             f"🎯 FOCUS MODE ACTIVE — "
             f"{minutes:02d}:{seconds:02d}"
-
         )
-
 
     else:
 
         st.success(
             "🎉 Focus session completed!"
         )
-
 
         st.session_state.pop(
             "focus_start",
@@ -256,41 +272,128 @@ if "focus_start" in st.session_state:
 
 
 # ============================================================
-# LOAD DATABASE
-# ============================================================
-
-all_data = get_activity()
-
-today_data = get_today_activity()
-
-
-# ============================================================
-# NO DATA
+# CHECK DATA
 # ============================================================
 
 if all_data.empty:
 
     st.info(
-        "👋 LifeLens has not collected "
-        "activity data yet."
+        "👋 No activity has been collected yet."
     )
-
 
     st.markdown(
         """
-        ### What to do
+        ### How to start
 
-        1. Keep the tracker running.
+        1. Start the LifeLens tracker.
         2. Use your computer normally.
         3. Switch between applications.
-        4. Come back after a few minutes.
+        4. Come back to this dashboard.
         5. Click **Refresh Dashboard**.
 
-        The ML system needs activity data before
-        it can detect unusual behavior.
+        Your activity will automatically be stored
+        in the local LifeLens database.
         """
     )
 
+    st.stop()
+
+
+# ============================================================
+# CONVERT TIMESTAMP
+# ============================================================
+
+all_data["timestamp"] = pd.to_datetime(
+    all_data["timestamp"],
+    errors="coerce"
+)
+
+all_data = all_data.dropna(
+    subset=["timestamp"]
+)
+
+
+# ============================================================
+# SELECT DATE RANGE
+# ============================================================
+
+today = date.today()
+
+if period == "Today":
+
+    start_date = today
+
+    end_date = today
+
+
+elif period == "Last 7 Days":
+
+    start_date = today - timedelta(days=6)
+
+    end_date = today
+
+
+elif period == "This Month":
+
+    start_date = today.replace(day=1)
+
+    end_date = today
+
+
+else:
+
+    start_date = custom_start
+
+    end_date = custom_end
+
+
+# ============================================================
+# VALIDATE CUSTOM DATE
+# ============================================================
+
+if start_date > end_date:
+
+    st.error(
+        "Start Date cannot be after End Date."
+    )
+
+    st.stop()
+
+
+# ============================================================
+# FILTER DATA
+# ============================================================
+
+filtered_data = all_data[
+    (
+        all_data["timestamp"].dt.date
+        >= start_date
+    )
+    &
+    (
+        all_data["timestamp"].dt.date
+        <= end_date
+    )
+].copy()
+
+
+# ============================================================
+# NO DATA FOR SELECTED PERIOD
+# ============================================================
+
+if filtered_data.empty:
+
+    st.warning(
+        f"No activity data found from "
+        f"{start_date.strftime('%d %b %Y')} "
+        f"to "
+        f"{end_date.strftime('%d %b %Y')}."
+    )
+
+    st.info(
+        "Keep the tracker running and use your "
+        "computer. Then refresh the dashboard."
+    )
 
     st.stop()
 
@@ -309,14 +412,11 @@ def format_time(seconds):
         seconds % 3600
     ) // 60
 
-
     if hours > 0:
 
         return (
-            f"{hours}h "
-            f"{minutes}m"
+            f"{hours}h {minutes}m"
         )
-
 
     return (
         f"{minutes}m"
@@ -324,54 +424,64 @@ def format_time(seconds):
 
 
 # ============================================================
-# CALCULATE TODAY'S DATA
+# CALCULATE STATISTICS
 # ============================================================
 
-productive = today_data.loc[
+total_time = (
+    filtered_data["duration_seconds"]
+    .sum()
+)
 
-    today_data["category"]
-    == "Productive",
-
+productive_time = filtered_data.loc[
+    filtered_data["category"] == "Productive",
     "duration_seconds"
+].sum()
 
+distraction_time = filtered_data.loc[
+    filtered_data["category"] == "Distraction",
+    "duration_seconds"
+].sum()
+
+neutral_time = filtered_data.loc[
+    filtered_data["category"] == "Neutral",
+    "duration_seconds"
+].sum()
+
+idle_time = filtered_data.loc[
+    filtered_data["category"] == "Idle",
+    "duration_seconds"
 ].sum()
 
 
-distraction = today_data.loc[
-
-    today_data["category"]
-    == "Distraction",
-
-    "duration_seconds"
-
-].sum()
-
-
-idle = today_data.loc[
-
-    today_data["category"]
-    == "Idle",
-
-    "duration_seconds"
-
-].sum()
-
+# ============================================================
+# PRODUCTIVITY SCORE
+# ============================================================
 
 score = productivity_score(
-    today_data
+    filtered_data
 )
 
 
 # ============================================================
-# OVERVIEW
+# PERIOD HEADER
 # ============================================================
 
 st.subheader(
-    "📊 Today's Overview"
+    f"📊 {period} Overview"
+)
+
+st.caption(
+    f"{start_date.strftime('%d %b %Y')} "
+    f"→ "
+    f"{end_date.strftime('%d %b %Y')}"
 )
 
 
-col1, col2, col3, col4 = st.columns(4)
+# ============================================================
+# TOP METRICS
+# ============================================================
+
+col1, col2, col3, col4, col5 = st.columns(5)
 
 
 col1.metric(
@@ -381,20 +491,26 @@ col1.metric(
 
 
 col2.metric(
-    "Productive Time",
-    format_time(productive)
+    "Total Tracked",
+    format_time(total_time)
 )
 
 
 col3.metric(
-    "Distraction",
-    format_time(distraction)
+    "Productive",
+    format_time(productive_time)
 )
 
 
 col4.metric(
+    "Distraction",
+    format_time(distraction_time)
+)
+
+
+col5.metric(
     "Idle",
-    format_time(idle)
+    format_time(idle_time)
 )
 
 
@@ -419,18 +535,215 @@ elif score >= 40:
 
     st.warning(
         "⚠️ Moderate productivity. "
-        "Try Focus Mode."
+        "Try using Focus Mode."
     )
 
 else:
 
     st.error(
-        "🚨 Your productive activity is currently low."
+        "🚨 Productive activity is currently low."
     )
 
 
 # ============================================================
-# CHARTS
+# DAILY PRODUCTIVITY
+# ============================================================
+
+st.subheader(
+    "📈 Daily Productivity"
+)
+
+
+daily = filtered_data.copy()
+
+
+daily["date"] = (
+    daily["timestamp"].dt.date
+)
+
+
+daily_total = (
+    daily
+    .groupby("date")[
+        "duration_seconds"
+    ]
+    .sum()
+    .reset_index()
+)
+
+
+daily_productive = (
+    daily[
+        daily["category"] == "Productive"
+    ]
+    .groupby("date")[
+        "duration_seconds"
+    ]
+    .sum()
+    .reset_index()
+)
+
+
+daily_productive.rename(
+    columns={
+        "duration_seconds":
+        "productive_seconds"
+    },
+    inplace=True
+)
+
+
+daily_chart = daily_total.merge(
+    daily_productive,
+    on="date",
+    how="left"
+)
+
+
+daily_chart[
+    "productive_seconds"
+] = daily_chart[
+    "productive_seconds"
+].fillna(0)
+
+
+daily_chart[
+    "productivity_percentage"
+] = (
+
+    daily_chart[
+        "productive_seconds"
+    ]
+
+    /
+
+    daily_chart[
+        "duration_seconds"
+    ].replace(0, 1)
+
+) * 100
+
+
+daily_chart["productivity_percentage"] = (
+    daily_chart[
+        "productivity_percentage"
+    ].round(1)
+)
+
+
+fig = px.line(
+
+    daily_chart,
+
+    x="date",
+
+    y="productivity_percentage",
+
+    markers=True,
+
+    title="Productivity Percentage by Day"
+
+)
+
+
+fig.update_yaxes(
+    range=[0, 100],
+    title="Productivity %"
+)
+
+fig.update_xaxes(
+    title="Date"
+)
+
+
+st.plotly_chart(
+    fig,
+    use_container_width=True
+)
+
+
+# ============================================================
+# DAILY TIME BREAKDOWN
+# ============================================================
+
+st.subheader(
+    "📊 Daily Activity Breakdown"
+)
+
+
+daily_category = (
+
+    filtered_data
+
+    .assign(
+        date=filtered_data[
+            "timestamp"
+        ].dt.date
+    )
+
+    .groupby(
+        [
+            "date",
+            "category"
+        ]
+    )[
+        "duration_seconds"
+    ]
+
+    .sum()
+
+    .reset_index()
+
+)
+
+
+daily_category["minutes"] = (
+
+    daily_category[
+        "duration_seconds"
+    ]
+
+    /
+
+    60
+
+)
+
+
+fig = px.bar(
+
+    daily_category,
+
+    x="date",
+
+    y="minutes",
+
+    color="category",
+
+    barmode="stack",
+
+    title="Daily Productive, Neutral, Distraction & Idle Time"
+
+)
+
+
+fig.update_xaxes(
+    title="Date"
+)
+
+fig.update_yaxes(
+    title="Minutes"
+)
+
+
+st.plotly_chart(
+    fig,
+    use_container_width=True
+)
+
+
+# ============================================================
+# ACTIVITY ANALYSIS
 # ============================================================
 
 st.subheader(
@@ -449,7 +762,7 @@ with col1:
 
     category_data = (
 
-        today_data
+        filtered_data
 
         .groupby(
             "category"
@@ -500,14 +813,14 @@ with col1:
 
 
 # ============================================================
-# APPLICATION CHART
+# TOP APPLICATIONS
 # ============================================================
 
 with col2:
 
-    application_data = (
+    applications = (
 
-        today_data
+        filtered_data
 
         .groupby(
             "app_name"
@@ -529,9 +842,9 @@ with col2:
     )
 
 
-    application_data["minutes"] = (
+    applications["minutes"] = (
 
-        application_data[
+        applications[
             "duration_seconds"
         ]
 
@@ -544,7 +857,7 @@ with col2:
 
     fig = px.bar(
 
-        application_data,
+        applications,
 
         x="minutes",
 
@@ -554,6 +867,15 @@ with col2:
 
         title="Top Applications"
 
+    )
+
+
+    fig.update_xaxes(
+        title="Minutes"
+    )
+
+    fig.update_yaxes(
+        title="Application"
     )
 
 
@@ -571,16 +893,11 @@ with col2:
 # ============================================================
 
 st.subheader(
-    "🕐 Hourly Activity"
+    "🕐 Activity by Hour"
 )
 
 
-hourly = today_data.copy()
-
-
-hourly["timestamp"] = pd.to_datetime(
-    hourly["timestamp"]
-)
+hourly = filtered_data.copy()
 
 
 hourly["hour"] = (
@@ -633,8 +950,17 @@ fig = px.bar(
 
     barmode="stack",
 
-    title="Activity by Hour"
+    title="Activity Distribution by Hour"
 
+)
+
+
+fig.update_xaxes(
+    title="Hour of Day"
+)
+
+fig.update_yaxes(
+    title="Minutes"
 )
 
 
@@ -648,7 +974,7 @@ st.plotly_chart(
 
 
 # ============================================================
-# MACHINE LEARNING
+# MACHINE LEARNING ANALYSIS
 # ============================================================
 
 st.subheader(
@@ -657,17 +983,23 @@ st.subheader(
 
 
 ml_data = detect_anomalies(
-    all_data
+    filtered_data
 )
 
 
-if len(ml_data) < 5:
+if ml_data.empty:
+
+    st.info(
+        "Not enough data for ML analysis."
+    )
+
+elif len(ml_data) < 5:
 
     st.warning(
 
         f"ML is still learning your behavior. "
-        f"Currently {len(ml_data)} hourly records "
-        f"are available. Collect more data."
+        f"Only {len(ml_data)} hourly records "
+        f"are available."
 
     )
 
@@ -680,7 +1012,7 @@ else:
 
     if anomaly_count > 0:
 
-        st.error(
+        st.warning(
 
             f"⚠️ {anomaly_count} unusual "
             "behavior period(s) detected."
@@ -690,26 +1022,28 @@ else:
     else:
 
         st.success(
-
             "✅ No strong behavioral anomalies detected."
-
         )
 
 
 # ============================================================
-# ML DATA TABLE
+# ML TABLE
 # ============================================================
 
 if not ml_data.empty:
 
-    table = ml_data.copy()
+    ml_table = ml_data.copy()
 
 
-    table["hour"] = (
+    ml_table["hour"] = (
 
-        table["hour"].astype(str)
+        ml_table[
+            "hour"
+        ].astype(str)
 
-        + ":00"
+        +
+
+        ":00"
 
     )
 
@@ -723,46 +1057,84 @@ if not ml_data.empty:
 
     ]:
 
-        table[column] = (
+        if column in ml_table.columns:
 
-            table[column] / 60
+            ml_table[column] = (
 
-        ).round(1)
+                ml_table[
+                    column
+                ]
+
+                /
+
+                60
+
+            ).round(1)
 
 
-    table = table[
+    available_columns = [
 
-        [
-
-            "hour",
-            "total_duration",
-            "productive_time",
-            "distraction_time",
-            "idle_time",
-            "sessions",
-            "anomaly"
-
-        ]
+        "hour",
+        "total_duration",
+        "productive_time",
+        "distraction_time",
+        "idle_time",
+        "sessions",
+        "anomaly"
 
     ]
 
 
-    table.columns = [
+    available_columns = [
 
-        "Hour",
+        column
+
+        for column in available_columns
+
+        if column in ml_table.columns
+
+    ]
+
+
+    ml_table = ml_table[
+        available_columns
+    ]
+
+
+    rename_columns = {
+
+        "hour": "Hour",
+
+        "total_duration":
         "Total Min",
+
+        "productive_time":
         "Productive Min",
+
+        "distraction_time":
         "Distraction Min",
+
+        "idle_time":
         "Idle Min",
+
+        "sessions":
         "Sessions",
+
+        "anomaly":
         "Anomaly"
 
-    ]
+    }
+
+
+    ml_table.rename(
+        columns=rename_columns,
+        inplace=True
+    )
 
 
     st.dataframe(
 
-        table,
+        ml_table,
 
         use_container_width=True,
 
@@ -781,7 +1153,7 @@ st.subheader(
 
 
 explanations = generate_explanation(
-    today_data
+    filtered_data
 )
 
 
@@ -793,7 +1165,7 @@ for explanation in explanations:
 
 
 # ============================================================
-# RECOMMENDATION
+# PERSONALIZED RECOMMENDATION
 # ============================================================
 
 st.subheader(
@@ -806,7 +1178,7 @@ if score >= 80:
     recommendation = (
 
         "Your productivity is excellent. "
-        "Continue your current work pattern "
+        "Continue your current working pattern "
         "and take regular short breaks."
 
     )
@@ -815,8 +1187,9 @@ elif score >= 60:
 
     recommendation = (
 
-        "Try a 25-minute focused work session "
-        "with minimal application switching."
+        "Your productivity is good. "
+        "Try a 25-minute focused session "
+        "to improve consistency."
 
     )
 
@@ -834,8 +1207,9 @@ else:
 
     recommendation = (
 
-        "Start a 15–25 minute Focus Mode session "
-        "and concentrate on one task."
+        "Your productive activity is low. "
+        "Try a 15–25 minute Focus Mode session "
+        "with one task at a time."
 
     )
 
@@ -850,16 +1224,16 @@ st.info(
 # ============================================================
 
 st.subheader(
-    "📝 Recent Activity"
+    "📝 Activity Records"
 )
 
 
-recent = today_data.copy()
+records = filtered_data.copy()
 
 
-recent["Minutes"] = (
+records["Minutes"] = (
 
-    recent[
+    records[
         "duration_seconds"
     ]
 
@@ -870,22 +1244,40 @@ recent["Minutes"] = (
 ).round(1)
 
 
-recent = recent[
+records["Time"] = (
+
+    records[
+        "timestamp"
+    ]
+
+    .dt.strftime(
+        "%d %b %Y %H:%M"
+    )
+
+)
+
+
+records = records[
 
     [
-        "timestamp",
+        "Time",
         "app_name",
+        "window_title",
         "category",
         "Minutes"
     ]
 
-].tail(15)
+].sort_values(
+    "Time",
+    ascending=False
+)
 
 
-recent.columns = [
+records.columns = [
 
     "Time",
     "Application",
+    "Window",
     "Category",
     "Minutes"
 
@@ -894,7 +1286,7 @@ recent.columns = [
 
 st.dataframe(
 
-    recent,
+    records.head(100),
 
     use_container_width=True,
 
@@ -904,7 +1296,55 @@ st.dataframe(
 
 
 # ============================================================
-# PRIVACY
+# DATA SUMMARY
+# ============================================================
+
+st.subheader(
+    "📋 Selected Period Summary"
+)
+
+
+summary_col1, summary_col2 = st.columns(2)
+
+
+with summary_col1:
+
+    st.write(
+        f"**Start Date:** "
+        f"{start_date.strftime('%d %B %Y')}"
+    )
+
+    st.write(
+        f"**End Date:** "
+        f"{end_date.strftime('%d %B %Y')}"
+    )
+
+    st.write(
+        f"**Total Records:** "
+        f"{len(filtered_data)}"
+    )
+
+
+with summary_col2:
+
+    st.write(
+        f"**Total Tracked:** "
+        f"{format_time(total_time)}"
+    )
+
+    st.write(
+        f"**Productivity Score:** "
+        f"{score}%"
+    )
+
+    st.write(
+        f"**Applications Used:** "
+        f"{filtered_data['app_name'].nunique()}"
+    )
+
+
+# ============================================================
+# PRIVACY INFORMATION
 # ============================================================
 
 with st.expander(
@@ -919,21 +1359,24 @@ with st.expander(
         ✓ Records window titles
         ✓ Records activity duration
         ✓ Detects idle periods
-        ✓ Uses local SQLite database
+        ✓ Stores data locally
         ✓ Uses Machine Learning anomaly detection
 
         ✗ Does NOT record passwords
         ✗ Does NOT record keyboard content
         ✗ Does NOT take screenshots
-        ✗ Does NOT send data to a server
+        ✗ Does NOT send your activity to a server
         """
     )
 
 
+# ============================================================
+# FOOTER
+# ============================================================
+
 st.divider()
 
-
 st.caption(
-    "LifeLens AI • Personalized Digital "
-    "Behavior Analytics using Machine Learning"
+    "LifeLens AI • Personalized Digital Behavior "
+    "Analytics using Machine Learning"
 )
